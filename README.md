@@ -237,3 +237,53 @@ This tool is released for **authorized security research and red team operations
 ---
 
 *"We don't pick locks. We move the floor."*
+
+## 快速编译：build.cmd脚本代码
+@echo off
+setlocal
+rem ============================================================
+rem  Sam The Butcher - one-shot build (MinGW-w64 x86-64)
+rem  Usage: build.cmd  [optional: /debug]
+rem    build.cmd        -> build\stb.exe   (optimized, stripped, static)
+rem    build.cmd /debug -> build\stb_dbg.exe (with symbols, -Wall -Wextra)
+rem ============================================================
+
+set "CC=x86_64-w64-mingw32-gcc"
+where %CC% >nul 2>&1
+if errorlevel 1 (
+    if exist "C:\msys64\mingw64\bin\%CC%.exe" (
+        set "PATH=C:\msys64\mingw64\bin;%PATH%"
+    ) else (
+        echo [x] %CC% not found.
+        echo     Install: pacman -S mingw-w64-x86_64-gcc
+        echo     Or add C:\msys64\mingw64\bin to PATH.
+        exit /b 1
+    )
+)
+
+if not exist build mkdir build
+
+if /i "%~1"=="/debug" (
+    set "OUT=build\stb_dbg.exe"
+    set "FLAGS=-O0 -g -Wall -Wextra"
+) else (
+    set "OUT=build\stb.exe"
+    rem --no-insert-timestamp: keeps the PE hash stable across rebuilds
+    rem (MinGW ld otherwise stamps the current time into the header).
+    set "FLAGS=-O2 -s -static -Wl,--no-insert-timestamp"
+)
+
+echo [*] %CC% %FLAGS% -o %OUT% sam_the_butcher.c -lshell32
+%CC% %FLAGS% -o %OUT% sam_the_butcher.c -lshell32
+if errorlevel 1 (
+    echo [x] build failed
+    exit /b 1
+)
+
+echo [+]
+echo [+] built: %OUT%
+for %%F in ("%OUT%") do echo [+] size : %%~zF bytes
+echo [+] sha256:
+certutil -hashfile "%OUT%" SHA256 | findstr /r "^[0-9a-f][0-9a-f][0-9a-f]"
+endlocal
+
